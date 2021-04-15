@@ -106,6 +106,7 @@ local state = {
     message_text,
     message_hide_timer,
     fullscreen = false,
+    prev_vis = false,                       -- visibility state before osc is disabled by fullscreen events
     tick_timer = nil,
     tick_last_time = 0,                     -- when the last tick() was run
     hide_timer = nil,
@@ -2541,14 +2542,10 @@ function tick()
         end
 
 
-    elseif (state.fullscreen and user_opts.showfullscreen)
-        or (not state.fullscreen and user_opts.showwindowed) then
+    else
 
         -- render the OSC
         render()
-    else
-        -- Flush OSD
-        set_osd(osc_param.playresy, osc_param.playresy, "")
     end
 
     state.tick_last_time = mp.get_time()
@@ -2604,12 +2601,6 @@ mp.register_script_message("osc-tracklist", function(dur)
     show_message(table.concat(msg, '\n\n'), dur)
 end)
 
-mp.observe_property("fullscreen", "bool",
-    function(name, val)
-        state.fullscreen = val
-        request_init_resize()
-    end
-)
 mp.observe_property("border", "bool",
     function(name, val)
         state.border = val
@@ -2737,6 +2728,26 @@ function visibility_mode(mode, no_osd)
     update_margins()
     request_tick()
 end
+
+mp.observe_property("fullscreen", "bool",
+    function(name, val)
+        state.fullscreen = val
+        request_init_resize()
+        -- disable osc on fullscreen changes according to user options
+        if (state.fullscreen and not user_opts.showfullscreen) or
+           (not state.fullscreen and not user_opts.showwindowed)
+        then
+            state.prev_vis = user_opts.visibility
+            visibility_mode("never", true)
+        elseif state.prev_vis and (user_opts.visibility == "never") then
+            -- restore previous state
+            visibility_mode(state.prev_vis, true)
+            state.prev_vis = false
+        elseif state.prev_vis then
+            state.prev_vis = false
+        end
+    end
+)
 
 visibility_mode(user_opts.visibility, true)
 mp.register_script_message("osc-visibility", visibility_mode)
