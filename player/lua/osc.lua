@@ -2238,6 +2238,7 @@ function render_wipe()
     msg.trace("render_wipe()")
     state.osd.data = "" -- allows set_osd to immediately update on enable
     state.osd:remove()
+    reset_margins()
 end
 
 function render()
